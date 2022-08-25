@@ -1,3 +1,6 @@
+import json
+from pprint import pprint
+
 from colorcodes import Colorcodes
 
 try:
