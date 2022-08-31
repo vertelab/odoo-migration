@@ -429,9 +429,41 @@ def migrate_model(model, **params):
             exec(after)
         except Exception as e:
             print(f"{e=}")
+            print(f"{xmlid=}")
             errors.append(f"vals={compress_dict(vals)}, {xmlid=}")
 
     p(f"Done migrating {model}!", 'green_bg')
     return errors if errors else f"No errors ({limit=}, {offset=})"
+
+def print_relations(conn, model):
+    conn_model = conn.env[model].fields_get() 
+    model_relations = []
+    longest_field_name = 0
+    for field, attributes in conn_model.items(): 
+        if attributes.get('relation'):
+            if len(field) > longest_field_name:
+                longest_field_name = len(field) + 2
+    for field, attributes in conn_model.items(): 
+        if attributes.get('relation'): 
+            model_relations.append(f"{field:{longest_field_name}} {attributes['relation']}")
+    print(f"{conn.__name__}.env[{model}]")
+    pprint(sorted(model_relations))
+
+def get_migrated_ids(conn, model, module='__import__'):
+    return [x['res_id'] for x in conn.env['ir.model.data'].search_read([
+        ('model', '=', model),  
+        ('module', '=', module),
+        ], ['res_id'])]
+        
+def unlink_generated_records(model, before=None, skip=None):
+    existing_ids = target.env[model].search([])
+    migrated_ids = get_migrated_ids(target, model)
+    unlink_ids = sorted(set(existing_ids) - set(migrated_ids))
+    for unlink_id in unlink_ids:
+        rec = target.env[model].browse(unlink_id)
+        if before:
+            exec(before)
+        rec.unlink()
+        input(f'Successfully unlinked {rec}') if not skip else None
 
 p('Methods loaded', 'green_fg')
